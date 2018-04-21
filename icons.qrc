@@ -1,0 +1,35 @@
+<RCC>
+  <qresource prefix="/">
+    <file>icon/parseweb.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/network.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/search.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/news.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/rss.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/television.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/france.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/germany.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/italy.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/spain.png</file>
+  </qresource>
+  <qresource prefix="/">
+    <file>icon/uk.png</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,15 @@
+#include <windows.h>
+
+100 ICON DISCARDABLE "icon/parseweb.ico"
+101 ICON "icon/network.ico"
+102 ICON "icon/search.ico"
+103 ICON "icon/news.ico"
+104 ICON "icon/rss.ico"
+105 ICON "icon/television.ico"
+106 ICON "icon/france.ico"
+107 ICON "icon/germany.ico"
+108 ICON "icon/italy.ico"
+119 ICON "icon/spain.ico"
+110 ICON "icon/uk.ico"
+
+
