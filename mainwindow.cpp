@@ -337,7 +337,14 @@ void MainWindow::on_dicSearchText_editingFinished()
             }
         }
         ui->dicSearchResults->setPlainText(resp) ;
+
+        // Switch focus, but prevent additional editingFinished
+        // messages from being sent (e.g. when editing finished
+        // when enter pressed).
+
+        ui->dicSearchText->blockSignals(true) ;
         ui->dicSearchResults->setFocus() ;
+        ui->dicSearchText->blockSignals(false) ;
     }
 }
 
