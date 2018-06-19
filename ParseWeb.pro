@@ -49,7 +49,8 @@ FORMS += mainwindow.ui \
     ../Lib/warningyesno.ui
 
 RESOURCES += \
-    icons.qrc
+    icons.qrc \
+    ../Lib/sounds.qrc
 
 OTHER_FILES += \
     icons.rc
