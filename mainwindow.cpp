@@ -372,5 +372,5 @@ void MainWindow::on_actionE_xit_triggered()
 
 void MainWindow::on_action_About_triggered()
 {
-     warningOkDialog(this, "ParseWeb Version", QString("ParseWeb version: " BUILDVERSION ", built on " BUILDDATE));
+     warningOkDialog(this, "ParseWeb Version", QString("This is version " BUILDVERSION " (" BUILDDATE ") of ParseWeb, and was built on :\n  " COMPILEDATE));
 }
