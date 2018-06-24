@@ -13,7 +13,7 @@
 #include <QString>
 #include "../Lib/alertsound.h"
 #include "../Lib/supportfunctions.h"
-#include "buildinfo.h"
+#include "version.h"
 
 
 #undef DEBUGRESPONSE
