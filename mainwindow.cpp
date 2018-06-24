@@ -13,8 +13,8 @@
 #include <QString>
 #include "../Lib/alertsound.h"
 #include "../Lib/supportfunctions.h"
+#include "buildinfo.h"
 
-#define VERSION "2017-10-17"
 
 #undef DEBUGRESPONSE
 
@@ -372,5 +372,5 @@ void MainWindow::on_actionE_xit_triggered()
 
 void MainWindow::on_action_About_triggered()
 {
-     warningOkDialog(this, "ParseWeb Version", QString("ParseWeb version " VERSION));
+     warningOkDialog(this, "ParseWeb Version", QString("ParseWeb version: " BUILDVERSION ", built on " BUILDDATE));
 }

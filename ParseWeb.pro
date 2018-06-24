@@ -41,7 +41,9 @@ HEADERS += mainwindow.h \
     ../Lib/supportfunctions.h \
     ../Lib/warningform.h \
     ../Lib/warningok.h \
-    ../Lib/warningyesno.h
+    ../Lib/warningyesno.h \
+    buildinfo.h \
+    version.h
 
 FORMS += mainwindow.ui \
     ../Lib/warningform.ui \
