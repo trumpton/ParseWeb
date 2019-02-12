@@ -14,13 +14,11 @@
 #include "../Lib/alertsound.h"
 #include "../Lib/supportfunctions.h"
 #include "version.h"
-
-
-#undef DEBUGRESPONSE
-
-#ifdef DEBUGRESPONSE
 #include "fileio.h"
-#endif
+
+// Debugging
+//#define DEBUGREMOVETAGS
+#undef DEBUGREMOVETAGS
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -64,18 +62,33 @@ bool MainWindow::parseIni(int argc, char *argv[])
               " Each section contains the following fields:\n\n"
               "    APPNAME - Name of the Application\n"
               "    SHORTAPPNAME - Shortened Name of the Application\n"
-              "    URL - URL to search, with the supplied keyword being put into {{double braces}}\n"
-              "    SEARCH - Search pattern with text surrounding results.  Data to be used surrounded by {{double braces}}\n"
+              "    URL - URL to search, with the supplied keyword location identified with {{KEYWORD}}\n"
+              "    TESTFILE - HTML File to use instead of URL\n"
+              "    SEARCH - Search pattern with text surrounding results.  Data to be used identified with {{SEARCHDATA}}\n"
               "    DELIMIT - Sequence marking the end of an entry\n"
+              "    REMOVECOMMENTS - If set to true, ensures that <!-- --> comments are removed before parsing\n"
+              "    REPLACEn - Replaces the text given with the text provided in WITHn (n=1-4).  Wildvards * and ? can be used.\n"
               "    NEWLINE - Sequence to be used for a newline in the results\n"
               "    OUTPUTPREFIX - Test to insert at the start of an output\n"
               "    ISO8559RESPONSE - true/false - identify if the response is in ISO8559 format\n"
               "    SEARCHPROMPT - Text prompt for the GUI input\n"
               "    ACCESSIBLESEARCHNAME - Accessible name for input text prompt\n"
               "    ACCESSIBLEOUTPUTNAME - Accessible name for text output prompt\n"
-              "    ICON - Icon to use for application\n\n"
+              "    ICON - Icon to use for application\n"
+              "    DEBUG - Causes raw html to be captured to local disk\n\n"
               "Notes\n"
               " -----\n"
+              "  Sequence of operation:\n"
+              "    1. Load URL or File\n"
+              "    2. Remove Comments if requested\n"
+              "    3. SEARCH and discard any data outside {{SEARCHDATA}}\n"
+              "    4. Replace REPLACEn sequence in HTML with WITHn\n"
+              "    5. Replace <br> with newlines\n"
+              "    6. Replace DELIMIT sequence in HTML with '----' delimiter\n"
+              "    7. Replace NEWLINE sequence in HTML with a newline\n"
+              "    8. Expand &amp; html sequences etc.\n"
+              "    9. Remove all HTML tags and extra white space\n"
+              "\n"
               "  Strings should be quoted.\n"
               "  Quotes should be delimited with \\\"\n"
               "\n"
@@ -91,13 +104,17 @@ bool MainWindow::parseIni(int argc, char *argv[])
               "SHORTAPPNAME=\"Synonymes\"\n"
               "URL=\"http://www.synonyms-fr.com/synonym.php?word={{KEYWORD}}\"\n"
               "SEARCH=\"Synonyms of {{SEARCHDATA}}</table>\"\n"
+              "REPLACE1=\"<faultytag\"\n"
+              "WITH1=\"<faultytag />\"\n"
               "DELIMIT=\"</tr>\"\n"
+              "REMOVECOMMENTS=\"false\"\n"
               "OUTPUTPREFIX=\"Synonyms of\"\n"
               "ISO8559RESPONSE=\"true\"\n"
               "SEARCHPROMPT=\"French Word\"\n"
               "ACCESSIBLESEARCHNAME=\"French Synonym Search\"\n"
               "ACCESSIBLEOUTPUTNAME=\"French Synonym Results\"\n"
               "ICON=\"france\"\n"
+              "DEBUG=\"false\"\n"
               "\n"
               "Search Hints\n"
               "------------\n"
@@ -227,19 +244,131 @@ QString MainWindow::Get(QString link)
 
     }
 
-#ifdef DEBUGRESPONSE
-    writeFile("webresponse2.html", GetResponse) ;
-#endif
+    if (ini.get(DEBUG).toLower().compare("true")==0) {
+        writeFile(QString("parseweb-01-rawresponse.html"), GetResponse) ;
+    }
 
     return GetResponse ;
+}
+
+QString MainWindow::ReplaceString(QString whats, QString withs, QString src)
+{
+    QString what = ini.get(whats) ;
+    what = what.replace("\\", "\\\\") ;
+
+    QString with = ini.get(withs) ;
+    with = with.replace("\\", "\\\\") ;
+
+    QRegExp re(what) ;
+    re.setMinimal(true);
+    re.setPatternSyntax(QRegExp::WildcardUnix) ;
+    return src.replace(re, with) ;
+}
+
+QString MainWindow::RemoveTags(QString src, bool removecommentsonly)
+{
+    bool removetags=!removecommentsonly ;
+
+    bool incomment=false ;
+    bool instrings=false ;
+    bool instringd=false ;
+    bool intag=false ;
+    QString dst ;
+    int len = src.length() ;
+
+#ifdef DEBUGREMOVETAGS
+    writeFile("removetags.txt", QString("")) ;
+#endif
+
+    for (int i=0; i<src.length(); i++) {
+
+        QChar ch = src.at(i) ;
+        bool justclosedtag=false ;
+        bool justclosedcommenttag=false ;
+
+        if (!incomment && !instrings && !instringd && !intag && i<len-4) {
+            // Identify comment start
+            if (ch==QChar('<') && src.at(i+1)==QChar('!') && src.at(i+2)==QChar('-') && src.at(i+3)==QChar('-')) {
+                incomment=true ;
+            }
+
+        } else if (incomment && i>3) {
+            // Identify comment end
+            if (ch==QChar('>') && src.at(i-1)==QChar('-') && src.at(i-2)==QChar('-')) {
+                incomment=false ;
+                justclosedcommenttag=true ;
+            }
+        }
+
+        if (!instrings && !instringd && !incomment && !justclosedcommenttag) {
+
+            if (!intag && ch==QChar('<')) {
+                // Identify tag start
+                intag=true ;
+
+            } else if (intag && ch==QChar('>')) {
+                // Identify tag end
+                intag=false ;
+                justclosedtag=true ;
+            }
+
+        }
+
+        // Track if In Single Quotes
+        if (!incomment && !instringd && intag) {
+            if (ch==QChar('\'')) instrings=!instrings ;
+        }
+
+        // Track if In Double Quotes
+        if (!incomment && !instrings && intag) {
+            if (ch==QChar('\"')) instringd=!instringd ;
+        }
+
+        // Don't output character if:
+        //
+        //  removing-tags and (intag or just closing a tag)
+        //  removing-comments and (incomment or just closing a comment tag)
+        //
+
+        QChar outputch = ch ;
+        if ((removetags && (intag || justclosedtag))) {
+            outputch=QChar(' ') ;
+        }
+        if ((incomment || justclosedcommenttag)) {
+            outputch=QChar(' ') ;
+        }
+
+        dst.append(outputch) ;
+
+#ifdef DEBUGREMOVETAGS
+        QString entry ;
+        if (removetags) entry.append(QString("T")); else entry.append(QString(" ")) ;
+        if (incomment) entry.append(QString("#")); else entry.append(QString(" ")) ;
+        if (intag) entry.append(QString("<")); else entry.append(QString(" ")) ;
+        if (justclosedtag) entry.append(QString(">")); else entry.append(QString(" ")) ;
+        if (instrings) entry.append(QString("\'")); else entry.append(QString(" ")) ;
+        if (instringd) entry.append(QString("\"")); else entry.append(QString(" ")) ;
+        entry.append(QString(" : ")) ;
+        entry.append(ch) ;
+        entry.append(QString(" ... ")) ;
+        entry.append(outputch) ;
+        entry.append("\n") ;
+        appendFile("removetags.txt", entry) ;
+#endif
+
+    }
+
+    return dst ;
 }
 
 
 QString MainWindow::ParseWebResponse(QString resp)
 {
     QString result ;
+
     if (resp.left(4).compare("ERR:")==0) {
         result = resp ;
+
     } else {
 
         // Process and parse ini entry
@@ -264,31 +393,60 @@ QString MainWindow::ParseWebResponse(QString resp)
         // Search and reformat the results
         QRegExp re(search) ;
         re.setMinimal(true) ;
+
+        // Remove Comments in web page if requested
+        if (ini.get(REMOVECOMMENTS).toLower().compare("true")==0) {
+            resp = RemoveTags(resp, true) ;
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-02-uncommented.html", resp) ;
+            }
+        }
+
         if (re.indexIn(resp)>=0) {
+
             result=re.cap(1) ;
+
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-03-extracteddata.html", result) ;
+            }
+
+            // Replace pre-defined sequences in the output
+            result = ReplaceString(REPLACE1, WITH1, result) ;
+            result = ReplaceString(REPLACE2, WITH2, result) ;
+            result = ReplaceString(REPLACE3, WITH3, result) ;
+            result = ReplaceString(REPLACE4, WITH4, result) ;
 
             // Translate spaces, accents and newlines
             result.remove("\r") ;
             result.replace("\n", " ") ;
-            result = decodehtml(result) ;
             result.replace("<br>", "\n") ;
             result.replace("<br/>", "\n") ;
 
-            // Site Specific Delimiter for Entries
+            // Site Specific Delimiter for Entries (temporarily use \r)
             if (ini.get(DELIMIT)!="") {
-                result.replace(ini.get(DELIMIT),"\n----------------\n") ;
+                result.replace(ini.get(DELIMIT),"\r") ;
             }
             if (ini.get(NEWLINE)!="") {
                 result.replace(ini.get(NEWLINE),"\n") ;
             }
 
-            // Remove tags, rogue spaces and tidy up
-            result.remove(QRegExp("<[^>]*>"));
             result.replace(QRegExp("[ \\t]+\\n"), "\n") ;
             result.replace(QRegExp("\\n+"), "\n") ;
-            result.replace(QRegExp("[\\t ]+"), " ") ;
             result.replace(QRegExp("\\n "), "\n") ;
-            result.replace(QRegExp("^\\W+"), "") ;
+
+            // Remove tags
+            result = RemoveTags(result) ;
+
+            // Expand html escaped sequences
+            result = decodehtml(result) ;
+
+            // Remove white space from between \r and replace \r with real delimiter
+            result.replace(QRegExp("\\r[ \\t]+"), "\r") ;
+            result.replace(QRegExp("[\\r]+"), "\r") ;
+            result.replace(QRegExp("\\r+"), "\n--------------------\n") ;
+
+            // Remove rogue spaces and tidy up
+            result.replace(QRegExp("[\\t ]+"), " ") ;
 
             QString outputprefix = ini.get(OUTPUTPREFIX) ;
             if (!outputprefix.isEmpty()) result = outputprefix + " " + result ;
@@ -313,16 +471,26 @@ QString MainWindow::toPercentEncoding(QString& src)
 void MainWindow::on_dicSearchText_editingFinished()
 {
     if (ui->dicSearchText->text().isEmpty()) {
+
         ui->dicSearchResults->setPlainText("No search requested") ;
         play(Error) ;
+
     } else {
+
         QString word=ui->dicSearchText->text() ;
         this->setWindowTitle(word + " - " + ini.get(APPNAME));
         word = toPercentEncoding(word) ;
 
-        // Site Specific Configuration
-        QString url = ini.get(URL) ;
-        QString resp = Get(url.replace("{{KEYWORD}}", word)) ;
+        QString resp ;
+
+        // Get data from test file or from url
+        QString tf = ini.get(TESTFILE) ;
+        if (!ini.get(TESTFILE).isEmpty()) {
+            resp = readFile(ini.get(TESTFILE)) ;
+        } else {
+            QString url = ini.get(URL) ;
+            resp  = Get(url.replace("{{KEYWORD}}", word)) ;
+        }
 
         if (resp.left(14).compare("No match found")==0) {
             play(NotFound) ;

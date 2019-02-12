@@ -34,6 +34,10 @@ private:
     QString toPercentEncoding(QString& src) ;
     QString ParseWebResponse(QString resp) ;
     QString Get(QString link) ;
+    QString RemoveTags(QString src, bool removecommentsonly=false) ;
+    QString ReplaceString(QString whats, QString withs, QString src) ;
+
+
 
 };
 

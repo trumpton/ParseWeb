@@ -1,0 +1,29 @@
+<html>
+  <!-- comment with opening tag < but no closing one -->
+  <!-- comment with opening quotes, " but no closing one -->
+  <records>
+    <record>
+      <double>             Some text, containing <!-- comment --> one double " quote</double>
+    </record>
+    <record>
+      <tagcomment id="a tag containing a comment in the parameter <!--">Some text for the middle record</tagcomment>
+    </record>
+    <record>
+      <single>			Some text, containing                          a single' quote</single>
+    </record>
+    <record>
+    </record>
+    <record>
+      <tag double="double string with ' single quote inside">Some text for the third record</tag>
+    </record>
+    <record>
+        <tag single='single string with double " qoute inside' />Some text for the fourth record
+    </record>
+    <record>
+        Some text containing a rogue > closing tag
+    </record>
+    <record>
+        <tag closecomment='tag containing --> close comment in text parameter' />Some text for the sixth and final record 
+    </record>
+  </records>
+</html>

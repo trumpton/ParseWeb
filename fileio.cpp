@@ -15,6 +15,17 @@ bool writeFile(QString filename, QString text)
     return true ;
 }
 
+bool appendFile(QString filename, QString text)
+{
+     QFile file(filename);
+     if (!file.open(QIODevice::Append)) {
+         return false;
+     }
+     QTextStream out(&file);
+     out << text ;
+    return true ;
+}
+
 QString readFile(QString filename)
 {
     QString contents ;
