@@ -123,6 +123,7 @@ bool MainWindow::parseIni(int argc, char *argv[])
 
         ui->dicSearchResults->setFocus() ;
         ui->dicSearchResults->setPlainText(err);
+        return true ;
 
     } else {
 
@@ -540,5 +541,11 @@ void MainWindow::on_actionE_xit_triggered()
 
 void MainWindow::on_action_About_triggered()
 {
-     warningOkDialog(this, "ParseWeb Version", QString("This is version " BUILDVERSION " (" BUILDDATE ") of ParseWeb, and was built on :\n  " COMPILEDATE));
+    QString text =
+    QString("ParseWeb Release %1.\n").arg(BUILDVERSION) +
+    QString("It was built on: %1.\n").arg(buildDate()) +
+    QString("\nParseWeb Repository Version: %1.\n").arg(appHash()) +
+    QString("Library Repository Version: %1.\n").arg(libVersion()) ;
+
+     warningOkDialog(this, "ParseWeb", text);
 }
