@@ -13,7 +13,6 @@
 #include <QString>
 #include "../Lib/alertsound.h"
 #include "../Lib/supportfunctions.h"
-#include "version.h"
 #include "fileio.h"
 
 // Debugging
@@ -542,10 +541,9 @@ void MainWindow::on_actionE_xit_triggered()
 void MainWindow::on_action_About_triggered()
 {
     QString text =
-    QString("ParseWeb Release %1.\n").arg(BUILDVERSION) +
-    QString("It was built on: %1.\n").arg(buildDate()) +
-    QString("\nParseWeb Repository Version: %1.\n").arg(appHash()) +
-    QString("Library Repository Version: %1.\n").arg(libVersion()) ;
+    QString("ParseWeb Version: %1.\n").arg(appHash()) +
+    QString("Library Version: %1.\n").arg(libVersion()) +
+    QString("It was built on: %1.\n").arg(buildDate()) ;
 
      warningOkDialog(this, "ParseWeb", text);
 }

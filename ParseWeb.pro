@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT += core gui network multimedia
+win32:QT += console
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -50,8 +51,7 @@ HEADERS += mainwindow.h \
     ../Lib/supportfunctions.h \
     ../Lib/warningform.h \
     ../Lib/warningok.h \
-    ../Lib/warningyesno.h \
-    version.h
+    ../Lib/warningyesno.h
 
 FORMS += mainwindow.ui \
     ../Lib/warningform.ui \
