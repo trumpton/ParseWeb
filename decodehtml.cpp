@@ -9,7 +9,7 @@
 QString decodehtml(QString src)
 {
 
-  const static char* const decodehtmldata[] = {
+  const static QString  decodehtmldata[] = {
   "&euro;", "€", "&nbsp;", " ", "&quot;", "\"", "&amp;", "&",
   "&lt;", "<", "&gt;", ">", "&nbsp;", " ", "&iexcl;", "¡",
   "&cent;", "¢", "&pound;", "£", "&curren;", "¤", "&yen;", "¥",
@@ -130,9 +130,9 @@ QString decodehtml(QString src)
 
 	QString result ;
 	result = src ;
-	
-	for (int x=0; decodehtmldata[x][0]!='\0'; x+=2) {
-	        result.replace(QRegExp(decodehtmldata[x]), decodehtmldata[x+1]) ;
+
+    for (int x=0; !decodehtmldata[x].isEmpty(); x+=2) {
+            result.replace(decodehtmldata[x], decodehtmldata[x+1]) ;
 	}
 	return result ;
 }

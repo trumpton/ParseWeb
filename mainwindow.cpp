@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "qregularexpression.h"
 #include "ui_mainwindow.h"
 #include "decodehtml.h"
 #include "icons.h"
@@ -9,7 +10,8 @@
 #include <QUrl>
 #include <QNetworkRequest>
 #include <QEventLoop>
-#include <QRegExp>
+//#include <QRegExp>
+#include <QRegularExpression>
 #include <QString>
 #include "../Lib/alertsound.h"
 #include "../Lib/supportfunctions.h"
@@ -63,7 +65,7 @@ bool MainWindow::parseIni(int argc, char *argv[])
               "    SHORTAPPNAME - Shortened Name of the Application\n"
               "    URL - URL to search, with the supplied keyword location identified with {{KEYWORD}}\n"
               "    TESTFILE - HTML File to use instead of URL\n"
-              "    SEARCH - Search pattern with text surrounding results.  Data to be used identified with {{SEARCHDATA}}\n"
+              "    SEARCH - Search pattern with text surrounding results.  Data to be processed for the response is identified with {{SEARCHDATA}}\n"
               "    DELIMIT - Sequence marking the end of an entry\n"
               "    REMOVECOMMENTS - If set to true, ensures that <!-- --> comments are removed before parsing\n"
               "    REPLACEn - Replaces the text given with the text provided in WITHn (n=1-4).  Wildvards * and ? can be used.\n"
@@ -198,13 +200,14 @@ QString MainWindow::Get(QString link)
     QEventLoop eventLoop ;
 
     // Force automatic handling of 301 redirects
-    request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true) ;
+    // Not required in QT6.2 - redirects followed automatically
+    // request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true) ;
 
     // get the page
-    QObject::connect(&manager, SIGNAL(finished(QNetworkReply *)), &eventLoop, SLOT(quit()));
+    QObject::connect(&manager, SIGNAL(finished(QNetworkReply*)), &eventLoop, SLOT(quit()));
     reply = manager.get(request);
     eventLoop.exec() ;
-    QVariant replycode=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute) ;
+    int replycode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() ;
 
     // Parse the response
 
@@ -244,10 +247,6 @@ QString MainWindow::Get(QString link)
 
     }
 
-    if (ini.get(DEBUG).toLower().compare("true")==0) {
-        writeFile(QString("parseweb-01-rawresponse.html"), GetResponse) ;
-    }
-
     return GetResponse ;
 }
 
@@ -259,10 +258,15 @@ QString MainWindow::ReplaceString(QString whats, QString withs, QString src)
     QString with = ini.get(withs) ;
     with = with.replace("\\", "\\\\") ;
 
-    QRegExp re(what) ;
-    re.setMinimal(true);
-    re.setPatternSyntax(QRegExp::WildcardUnix) ;
-    return src.replace(re, with) ;
+/*
+ *     QRegExp re(what) ;
+ *   re.setMinimal(true);
+ *   re.setPatternSyntax(QRegExp::WildcardUnix) ;
+ *   return src.replace(re, with) ;
+*/
+
+    return src.replace(what, with) ;
+
 }
 
 QString MainWindow::RemoveTags(QString src, bool removecommentsonly)
@@ -365,14 +369,22 @@ QString MainWindow::RemoveTags(QString src, bool removecommentsonly)
 QString MainWindow::ParseWebResponse(QString resp)
 {
     QString result ;
+    QString search = ini.get(SEARCH) ;
+
+    if (ini.get(DEBUG).toLower().compare("true")==0) {
+        writeFile("parseweb-02-searchpattern.txt", search) ;
+    }
 
     if (resp.left(4).compare("ERR:")==0) {
         result = resp ;
 
     } else {
 
+        // Replace newlines and remove linefeeds from response
+        resp.replace("\n", "\\n") ;
+        resp.replace("\r", "") ;
+
         // Process and parse ini entry
-        QString search = ini.get(SEARCH) ;
         search = search.replace("\\", "\\\\") ;
         search = search.replace("[", "\\[") ;
         search = search.replace("]", "\\]") ;
@@ -384,30 +396,47 @@ QString MainWindow::ParseWebResponse(QString resp)
         search = search.replace("$", "\\$") ;
         search = search.replace("(", "\\(") ;
         search = search.replace(")", "\\)") ;
-        search = search.replace("<", "\\<") ;
-        search = search.replace(">", "\\>") ;
-        search = search.replace("{{SEARCHDATA}}", "(.*)") ;
-        search = search.replace("{", "\\{") ;
-        search = search.replace("}", "\\}") ;
+//        search = search.replace("<", "\\<") ;
+//        search = search.replace(">", "\\>") ;
+        search = search.replace("{{SEARCHDATA}}", "(.*?)") ;
+//        search = search.replace("{", "\\{") ;
+//        search = search.replace("}", "\\}") ;
 
-        // Search and reformat the results
-        QRegExp re(search) ;
-        re.setMinimal(true) ;
 
         // Remove Comments in web page if requested
         if (ini.get(REMOVECOMMENTS).toLower().compare("true")==0) {
             resp = RemoveTags(resp, true) ;
             if (ini.get(DEBUG).toLower().compare("true")==0) {
-                writeFile("parseweb-02-uncommented.html", resp) ;
+                writeFile("parseweb-04-uncommented.txt", resp) ;
             }
         }
 
-        if (re.indexIn(resp)>=0) {
+        if (ini.get(DEBUG).toLower().compare("true")==0) {
+            writeFile("parseweb-03-parsedsearchpattern.txt", search) ;
+        }
 
-            result=re.cap(1) ;
+        // Search and reformat the results
+        // Note creating as static, then asigning setPattern() to suppress
+        // 'Don't create temporary QRegularExpression objects' warning
+        static QRegularExpression re ;
+        re.setPattern(search) ;
+
+        re.setPatternOptions(QRegularExpression::MultilineOption) ;
+        QRegularExpressionMatch rem ;
+
+        rem = re.match(resp) ;
+
+        bool hasMatch = rem.hasMatch();
+        bool hasPartialMatch = rem.hasPartialMatch();
+
+        if (hasMatch || hasPartialMatch) {
+
+            QStringList captured = rem.capturedTexts() ;
+
+            result = result + captured[1] ;
 
             if (ini.get(DEBUG).toLower().compare("true")==0) {
-                writeFile("parseweb-03-extracteddata.html", result) ;
+                writeFile("parseweb-05-extracteddata.txt", result) ;
             }
 
             // Replace pre-defined sequences in the output
@@ -417,8 +446,7 @@ QString MainWindow::ParseWebResponse(QString resp)
             result = ReplaceString(REPLACE4, WITH4, result) ;
 
             // Translate spaces, accents and newlines
-            result.remove("\r") ;
-            result.replace("\n", " ") ;
+            result.replace("\\n", " ") ;
             result.replace("<br>", "\n") ;
             result.replace("<br/>", "\n") ;
 
@@ -430,9 +458,9 @@ QString MainWindow::ParseWebResponse(QString resp)
                 result.replace(ini.get(NEWLINE),"\n") ;
             }
 
-            result.replace(QRegExp("[ \\t]+\\n"), "\n") ;
-            result.replace(QRegExp("\\n+"), "\n") ;
-            result.replace(QRegExp("\\n "), "\n") ;
+            static QRegularExpression r1("[ \\t]+\\n") ; result.replace(r1, "\n") ;
+            static QRegularExpression r2("\\n+") ; result.replace(r2, "\n") ;
+            static QRegularExpression r3("\\n ") ; result.replace(r3, "\n") ;
 
             // Remove tags
             result = RemoveTags(result) ;
@@ -441,18 +469,20 @@ QString MainWindow::ParseWebResponse(QString resp)
             result = decodehtml(result) ;
 
             // Remove white space from between \r and replace \r with real delimiter
-            result.replace(QRegExp("\\r[ \\t]+"), "\r") ;
-            result.replace(QRegExp("[\\r]+"), "\r") ;
-            result.replace(QRegExp("\\r+"), "\n--------------------\n") ;
+            static QRegularExpression r4("\\r[ \\t]+") ; result.replace(r4, "\r") ;
+            static QRegularExpression r5("[\\r]+") ; result.replace(r5, "\r") ;
+            static QRegularExpression r6("\\r+") ; result.replace(r6, "\n--------------------\n") ;
 
             // Remove rogue spaces and tidy up
-            result.replace(QRegExp("[\\t ]+"), " ") ;
+            static QRegularExpression r7("[\\t ]+") ; result.replace(r7, " ") ;
 
             QString outputprefix = ini.get(OUTPUTPREFIX) ;
             if (!outputprefix.isEmpty()) result = outputprefix + " " + result ;
 
         } else {
-            result = QString("No match found\nor unable to parse response from website.") ;
+
+            result = result + QString("No match found\nor unable to parse response from website.") ;
+
         }
     }
     return result ;
@@ -489,7 +519,14 @@ void MainWindow::on_dicSearchText_editingFinished()
             resp = readFile(ini.get(TESTFILE)) ;
         } else {
             QString url = ini.get(URL) ;
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile(QString("parseweb-00-url.txt"), url) ;
+            }
             resp  = Get(url.replace("{{KEYWORD}}", word)) ;
+        }
+
+        if (ini.get(DEBUG).toLower().compare("true")==0) {
+            writeFile(QString("parseweb-01-rawresponse.txt"), resp) ;
         }
 
         if (resp.left(14).compare("No match found")==0) {
