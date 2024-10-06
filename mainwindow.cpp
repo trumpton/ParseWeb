@@ -188,7 +188,22 @@ void MainWindow::configureApplication()
     setWindowIcon(icon) ;
 }
 
-QString MainWindow::Get(QString link)
+QStringList MainWindow::BuildHeadersList(QString headers)
+{
+    QStringList headerslist ;
+    QStringList headerentries ;
+    headerentries = headers.split("\n") ;
+    for (int a=0; a<headerentries.length(); a++) {
+        QStringList oneheader = headerentries.at(a).split(":") ;
+        if (oneheader.length()==2) {
+            headerslist.push_back(oneheader.at(0).trimmed()) ;
+            headerslist.push_back(oneheader.at(1).trimmed()) ;
+        }
+    }
+    return headerslist ;
+}
+
+QString MainWindow::Get(QString link, QString useragent, QStringList& headers)
 {
     QString GetResponse ;
 
@@ -198,6 +213,25 @@ QString MainWindow::Get(QString link)
     QUrl url(linkba) ;
     QNetworkRequest request(url) ;
     QEventLoop eventLoop ;
+
+    //
+    // Add useragent
+    //
+
+    if (useragent.isEmpty()) {
+        useragent = DEFAULTUSERAGENT ;
+    }
+    request.setRawHeader("User-Agent", useragent.toLatin1()) ;
+
+    //
+    // Add headers
+    //
+
+    if (!headers.isEmpty()) {
+        for (int a=0; a< headers.length(); a+=2) {
+            request.setRawHeader(headers.at(a).toLatin1(), headers.at(a+1).toLatin1()) ;
+        }
+    }
 
     // Force automatic handling of 301 redirects
     // Not required in QT6.2 - redirects followed automatically
@@ -388,7 +422,8 @@ QString MainWindow::ParseWebResponse(QString resp)
         search = search.replace("\\", "\\\\") ;
         search = search.replace("[", "\\[") ;
         search = search.replace("]", "\\]") ;
-        search = search.replace("*", "\\*") ;
+        search = search.replace("*", "[^>]") ;
+//        search = search.replace("*", "\\*") ;
         search = search.replace("+", "\\+") ;
         search = search.replace("?", "\\?") ;
         search = search.replace(".", "\\.") ;
@@ -421,7 +456,8 @@ QString MainWindow::ParseWebResponse(QString resp)
         static QRegularExpression re ;
         re.setPattern(search) ;
 
-        re.setPatternOptions(QRegularExpression::MultilineOption) ;
+        // Non-greedy capture allows for wildcards in delimiters
+        re.setPatternOptions(QRegularExpression::MultilineOption|QRegularExpression::InvertedGreedinessOption) ;
         QRegularExpressionMatch rem ;
 
         rem = re.match(resp) ;
@@ -512,6 +548,13 @@ void MainWindow::on_dicSearchText_editingFinished()
         word = toPercentEncoding(word) ;
 
         QString resp ;
+        QStringList headerslist ;
+
+        // Build list of headers
+        QString headers = ini.get(HEADERS) ;
+        if (!headers.isEmpty()) {
+            headerslist = BuildHeadersList(headers) ;
+        }
 
         // Get data from test file or from url
         QString tf = ini.get(TESTFILE) ;
@@ -522,7 +565,7 @@ void MainWindow::on_dicSearchText_editingFinished()
             if (ini.get(DEBUG).toLower().compare("true")==0) {
                 writeFile(QString("parseweb-00-url.txt"), url) ;
             }
-            resp  = Get(url.replace("{{KEYWORD}}", word)) ;
+            resp  = Get(url.replace("{{KEYWORD}}", word), ini.get(USERAGENT), headerslist) ;
         }
 
         if (ini.get(DEBUG).toLower().compare("true")==0) {
@@ -555,6 +598,7 @@ void MainWindow::on_dicSearchText_editingFinished()
 
 void MainWindow::on_dicResource_textChanged(const QString &arg1)
 {
+    Q_UNUSED(arg1) ;
     QString selection = ui->dicResource->currentData() ;
     ini.selectSection(selection) ;
     configureApplication() ;

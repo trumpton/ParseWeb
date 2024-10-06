@@ -5,6 +5,8 @@
 #include "initypes.h"
 #include "../Lib/iniconfig.h"
 
+#define DEFAULTUSERAGENT QString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36") ;
+
 namespace Ui {
 class MainWindow;
 }
@@ -33,9 +35,10 @@ private:
     Ui::MainWindow *ui;
     QString toPercentEncoding(QString& src) ;
     QString ParseWebResponse(QString resp) ;
-    QString Get(QString link) ;
+    QString Get(QString link, QString useragent, QStringList& headers) ;
     QString RemoveTags(QString src, bool removecommentsonly=false) ;
     QString ReplaceString(QString whats, QString withs, QString src) ;
+    QStringList BuildHeadersList(QString headers) ;
 
 
 

@@ -24,5 +24,7 @@
 #define REMOVECOMMENTS QString("REMOVECOMMENTS")
 #define ICON QString("ICON")
 #define DEBUG QString("DEBUG")
+#define USERAGENT QString("USERAGENT")
+#define HEADERS QString("HEADERS")
 
 #endif // INITYPES_H
