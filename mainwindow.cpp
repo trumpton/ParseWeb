@@ -64,11 +64,13 @@ bool MainWindow::parseIni(int argc, char *argv[])
               "    APPNAME - Name of the Application\n"
               "    SHORTAPPNAME - Shortened Name of the Application\n"
               "    URL - URL to search, with the supplied keyword location identified with {{KEYWORD}}\n"
+              "    HEADER - HTTP Headers to submit, for example: Accept: *\\nOrigin: www.site.com\n"
+              "    USERAGENT - Override default web browser user agent\n"
               "    TESTFILE - HTML File to use instead of URL\n"
               "    SEARCH - Search pattern with text surrounding results.  Data to be processed for the response is identified with {{SEARCHDATA}}\n"
               "    DELIMIT - Sequence marking the end of an entry\n"
               "    REMOVECOMMENTS - If set to true, ensures that <!-- --> comments are removed before parsing\n"
-              "    REPLACEn - Replaces the text given with the text provided in WITHn (n=1-4).  Wildvards * and ? can be used.\n"
+              "    REPLACEn - Replaces the text given with the text provided in WITHn (n=1-4).  Wildcards * and ? can be used.\n"
               "    NEWLINE - Sequence to be used for a newline in the results\n"
               "    OUTPUTPREFIX - Test to insert at the start of an output\n"
               "    ISO8559RESPONSE - true/false - identify if the response is in ISO8559 format\n"
@@ -82,7 +84,7 @@ bool MainWindow::parseIni(int argc, char *argv[])
               "  Sequence of operation:\n"
               "    1. Load URL or File\n"
               "    2. Remove Comments if requested\n"
-              "    3. SEARCH and discard any data outside {{SEARCHDATA}}\n"
+              "    3. SEARCH and discard any data outside {{SEARCHDATA}} - note that the '*' wildcard can be used\n"
               "    4. Replace REPLACEn sequence in HTML with WITHn\n"
               "    5. Replace <br> with newlines\n"
               "    6. Replace DELIMIT sequence in HTML with '----' delimiter\n"
@@ -192,7 +194,7 @@ QStringList MainWindow::BuildHeadersList(QString headers)
 {
     QStringList headerslist ;
     QStringList headerentries ;
-    headerentries = headers.split("\n") ;
+    headerentries = headers.split("\\n") ;
     for (int a=0; a<headerentries.length(); a++) {
         QStringList oneheader = headerentries.at(a).split(":") ;
         if (oneheader.length()==2) {
@@ -272,7 +274,7 @@ QString MainWindow::Get(QString link, QString useragent, QStringList& headers)
             if (ini.isset(ISO8559RESPONSE)) {
                 GetResponse = QString::fromLatin1(reply->readAll()) ;
             } else {
-                GetResponse = reply->readAll() ;
+                GetResponse = QString::fromUtf8(reply->readAll()) ;
             }
         } else {
           GetResponse = "ERR: " + reply->errorString() ;
@@ -370,10 +372,10 @@ QString MainWindow::RemoveTags(QString src, bool removecommentsonly)
 
         QChar outputch = ch ;
         if ((removetags && (intag || justclosedtag))) {
-            outputch=QChar(' ') ;
+            outputch = QChar(' ') ;
         }
         if ((incomment || justclosedcommenttag)) {
-            outputch=QChar(' ') ;
+            outputch = QChar(' ') ;
         }
 
         dst.append(outputch) ;
@@ -438,16 +440,16 @@ QString MainWindow::ParseWebResponse(QString resp)
 //        search = search.replace("}", "\\}") ;
 
 
+        if (ini.get(DEBUG).toLower().compare("true")==0) {
+            writeFile("parseweb-03-parsedsearchpattern.txt", search) ;
+        }
+
         // Remove Comments in web page if requested
         if (ini.get(REMOVECOMMENTS).toLower().compare("true")==0) {
             resp = RemoveTags(resp, true) ;
             if (ini.get(DEBUG).toLower().compare("true")==0) {
                 writeFile("parseweb-04-uncommented.txt", resp) ;
             }
-        }
-
-        if (ini.get(DEBUG).toLower().compare("true")==0) {
-            writeFile("parseweb-03-parsedsearchpattern.txt", search) ;
         }
 
         // Search and reformat the results
@@ -481,10 +483,18 @@ QString MainWindow::ParseWebResponse(QString resp)
             result = ReplaceString(REPLACE3, WITH3, result) ;
             result = ReplaceString(REPLACE4, WITH4, result) ;
 
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-06-replacedwith.txt", result) ;
+            }
+
             // Translate spaces, accents and newlines
             result.replace("\\n", " ") ;
             result.replace("<br>", "\n") ;
             result.replace("<br/>", "\n") ;
+
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-07-newlines.txt", result) ;
+            }
 
             // Site Specific Delimiter for Entries (temporarily use \r)
             if (ini.get(DELIMIT)!="") {
@@ -498,22 +508,43 @@ QString MainWindow::ParseWebResponse(QString resp)
             static QRegularExpression r2("\\n+") ; result.replace(r2, "\n") ;
             static QRegularExpression r3("\\n ") ; result.replace(r3, "\n") ;
 
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-08-delimit.txt", result) ;
+            }
+
             // Remove tags
             result = RemoveTags(result) ;
+
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-09-removedtags.txt", result) ;
+            }
 
             // Expand html escaped sequences
             result = decodehtml(result) ;
 
-            // Remove white space from between \r and replace \r with real delimiter
-            static QRegularExpression r4("\\r[ \\t]+") ; result.replace(r4, "\r") ;
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-10-decodedcharacters.txt", result) ;
+            }
+
+            // Collapse \r (remove white space) and replace \r with real delimiter
+            static QRegularExpression r4("\\r[ \\t\\n]+") ; result.replace(r4, "\r") ;
             static QRegularExpression r5("[\\r]+") ; result.replace(r5, "\r") ;
             static QRegularExpression r6("\\r+") ; result.replace(r6, "\n--------------------\n") ;
 
             // Remove rogue spaces and tidy up
             static QRegularExpression r7("[\\t ]+") ; result.replace(r7, " ") ;
+            result = result.trimmed() ;
+
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-11-whitespaces.txt", result) ;
+            }
 
             QString outputprefix = ini.get(OUTPUTPREFIX) ;
             if (!outputprefix.isEmpty()) result = outputprefix + " " + result ;
+
+            if (ini.get(DEBUG).toLower().compare("true")==0) {
+                writeFile("parseweb-12-output.txt", result) ;
+            }
 
         } else {
 
