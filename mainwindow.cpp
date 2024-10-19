@@ -652,10 +652,11 @@ void MainWindow::on_actionE_xit_triggered()
 
 void MainWindow::on_action_About_triggered()
 {
-    QString text =
-    QString("ParseWeb Version: %1.\n").arg(appHash()) +
-    QString("Library Version: %1.\n").arg(libVersion()) +
-    QString("It was built on: %1.\n").arg(buildDate()) ;
+    QString text ;
+
+    if (QString(GITHASH).length()>0) text = text + QString("ParseWeb Version: %1.\n").arg(GITHASH) ;
+    if (QString(LIBHASH).length()>0) text = text + QString("Library Version: %1.\n").arg(LIBHASH) ;
+    text = text + QString("Build Date: %1.\n").arg(BUILDDATE) ;
 
      warningOkDialog(this, "ParseWeb", text);
 }
